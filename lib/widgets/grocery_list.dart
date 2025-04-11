@@ -16,6 +16,8 @@ class GroceryList extends StatefulWidget {
 
 class _GroceryListState extends State<GroceryList> {
   List<GroceryItem> _groceryItems = [];
+  var _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -28,8 +30,12 @@ class _GroceryListState extends State<GroceryList> {
         'flutter-prep-4580e-default-rtdb.firebaseio.com', 'shopping-list.json');
 
     final response = await http.get(url);
-    final Map<String, dynamic> listData =
-        json.decode(response.body);
+    if (response.statusCode >= 400) {
+      setState(() {
+        _error = 'Failed to fetch data. Please try again later';
+      });
+    }
+    final Map<String, dynamic> listData = json.decode(response.body);
     final List<GroceryItem> _loadedItems = [];
     for (final item in listData.entries) {
       final category = categories.entries
@@ -47,17 +53,23 @@ class _GroceryListState extends State<GroceryList> {
     }
     setState(() {
       _groceryItems = _loadedItems;
+      _isLoading = false;
     });
-    
   }
 
   void _addItem() async {
-    await Navigator.of(context).push<GroceryItem>(
+    final newItem = await Navigator.of(context).push<GroceryItem>(
       MaterialPageRoute(
         builder: (ctx) => NewItem(),
       ),
     );
-    _loadItems();
+
+    if (newItem == null) {
+      return;
+    }
+    setState(() {
+      _groceryItems.add(newItem);
+    });
   }
 
   void _removeItem(GroceryItem item) {
@@ -71,6 +83,13 @@ class _GroceryListState extends State<GroceryList> {
     Widget content = Center(
       child: Text('No items added yet.'),
     );
+
+    if (_isLoading) {
+      content = const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
     if (_groceryItems.isNotEmpty) {
       content = ListView.builder(
         itemCount: _groceryItems.length,
@@ -92,6 +111,12 @@ class _GroceryListState extends State<GroceryList> {
           ),
         ),
       );
+    }
+
+    if (_error != null) {
+      content = Center(
+      child: Text(_error!),
+    );
     }
 
     return Scaffold(
